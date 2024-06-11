@@ -25,7 +25,7 @@ repo_dir = Path("img2img-turbo")
 
 # 모델이 있는지 확인
 if not repo_dir.exists():
-    raise FileNotFoundError("img2img-turbo repository not found. Please clone the repository first.")
+    raise FileNotFoundError("img2img-turbo repository not found. Please clone the repository first.\nType 'git clone https://github.com/GaParmar/img2img-turbo.git' in terminal.")
 
 # CPU를 사용하도록 코드 수정
 pix2pix_turbo_py_path = repo_dir / "src/pix2pix_turbo.py"
