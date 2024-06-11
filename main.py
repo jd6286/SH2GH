@@ -14,42 +14,57 @@ class MainWindow(QWidget):
         self.initUI()
         
     def initUI(self):
+        """
+        윈도우의 UI를 초기화합니다.
+        """
         self.setWindowTitle('Sketch to 3D Model and Music Generator')
         
         layout = QVBoxLayout()
 
+        # 파일 업로드 라벨
         self.sketch_label = QLabel('Upload Sketch:')
         layout.addWidget(self.sketch_label)
         
+        # 파일 업로드 버튼
         self.upload_button = QPushButton('Upload Sketch')
         self.upload_button.clicked.connect(self.upload_sketch)
         layout.addWidget(self.upload_button)
 
+        # 키워드 입력 라벨
         self.keyword_label = QLabel('Enter Keywords:')
         layout.addWidget(self.keyword_label)
-        
+
+        # 키워드 입력창        
         self.keyword_input = QLineEdit(self)
         layout.addWidget(self.keyword_input)
         
+        # 생성 버튼
         self.generate_button = QPushButton('Generate')
         self.generate_button.clicked.connect(self.generate_content)
         layout.addWidget(self.generate_button)
         
+        # 생성된 이미지 라벨
         self.image_label = QLabel('Generated Image:')
         layout.addWidget(self.image_label)
         
+        # 생성된 이미지 표시 영역
         self.result_image = QLabel()
         layout.addWidget(self.result_image)
         
+        # 생성된 3D 모델 경로
         self.model_label = QLabel('3D Model Path:')
         layout.addWidget(self.model_label)
         
+        # 생성된 음악 경로
         self.music_label = QLabel('Generated Music Path:')
         layout.addWidget(self.music_label)
 
         self.setLayout(layout)
         
     def upload_sketch(self):
+        """
+        손그림 이미지를 업로드합니다.
+        """
         options = QFileDialog.Options()
         options |= QFileDialog.ReadOnly
         file_name, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "", "Images (*.png *.xpm *.jpg)", options=options)
@@ -58,6 +73,9 @@ class MainWindow(QWidget):
             self.sketch_label.setText(f'Sketch: {file_name}')
         
     def generate_content(self):
+        """
+        업로드 된 이미지를 기반으로 3D 모델과 음악을 생성합니다.
+        """
         if not hasattr(self, 'sketch_path'):
             QMessageBox.warning(self, 'Warning', 'Please upload a sketch first!')
             return
@@ -67,12 +85,11 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, 'Warning', 'Please enter a keyword!')
             return
         
-        # Step 1: Generate Image from Sketch
+        # Step 1: Sketch to Image
         generated_image = sketch_to_image(self.sketch_path, keyword)
         self.display_image("output/sketch_to_image.jpg")
-        # self.display_image(generated_image)
         
-        # Step 2: Remove background and create 3D model
+        # Step 2: Image to 3D Model
         # model_3d = image_to_3d_model(generated_image)
         # self.model_label.setText(f'3D Model Path: {model_3d}')
         
@@ -81,6 +98,9 @@ class MainWindow(QWidget):
         # self.music_label.setText(f'Generated Music Path: {music}')
         
     def display_image(self, image_path):
+        """
+        생성된 이미지를 화면에 표시합니다.
+        """
         pixmap = QPixmap(image_path)
         self.result_image.setPixmap(pixmap.scaled(200, 200))
 
