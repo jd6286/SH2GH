@@ -39,7 +39,7 @@ model = MusicgenForConditionalGeneration.from_pretrained("facebook/musicgen-smal
 
 processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
 
-inputs = processor(
+sample_inputs = processor(
     text=["A song that would fit in a 1970s western. write me a guitar"],
     return_tensors="pt",
 )
@@ -60,7 +60,7 @@ musicgen_ir_path = models_dir / "mg.xml"
 audio_decoder_ir_path = models_dir / "encodec.xml"
 
 if not t5_ir_path.exists():
-    t5_ov = ov.convert_model(model.text_encoder, example_input={"input_ids": inputs["input_ids"]})
+    t5_ov = ov.convert_model(model.text_encoder, example_input={"input_ids": sample_inputs["input_ids"]})
 
     ov.save_model(t5_ov, t5_ir_path)
     del t5_ov
@@ -195,26 +195,6 @@ class AudioDecoderWrapper(torch.nn.Module):
     def decode(self, output_ids, audio_scales):
         output = self.decoder(output_ids)[self.decoder.outputs[0]]
         return self.output_type(audio_values=torch.tensor(output))
-    
-text_encode_ov = TextEncoderWrapper(t5_ir_path, model.text_encoder.config)
-musicgen_decoder_ov = MusicGenWrapper(
-    musicgen_0_ir_path,
-    musicgen_ir_path,
-    model.decoder.config,
-    model.decoder.num_codebooks,
-    model.decoder.build_delay_pattern_mask,
-    model.decoder.apply_delay_pattern_mask,
-)
-audio_encoder_ov = AudioDecoderWrapper(audio_decoder_ir_path, model.audio_encoder.config)
-
-del model.text_encoder
-del model.decoder
-del model.audio_encoder
-gc.collect()
-
-model.text_encoder = text_encode_ov
-model.decoder = musicgen_decoder_ov
-model.audio_encoder = audio_encoder_ov
 
 
 def prepare_inputs_for_generation(
@@ -270,19 +250,44 @@ def prepare_inputs_for_generation(
     }
 
 
-model.prepare_inputs_for_generation = partial(prepare_inputs_for_generation, model)
+def generate_music(keyword):
+    inputs = processor(
+        text=[keyword],
+        return_tensors="pt",
+    )
 
+    text_encode_ov = TextEncoderWrapper(t5_ir_path, model.text_encoder.config)
+    musicgen_decoder_ov = MusicGenWrapper(
+        musicgen_0_ir_path,
+        musicgen_ir_path,
+        model.decoder.config,
+        model.decoder.num_codebooks,
+        model.decoder.build_delay_pattern_mask,
+        model.decoder.apply_delay_pattern_mask,
+    )
+    audio_encoder_ov = AudioDecoderWrapper(audio_decoder_ir_path, model.audio_encoder.config)
 
-print("Audio Generating")
-audio_values = model.generate(**inputs, do_sample=True, guidance_scale=3, max_new_tokens=n_tokens)
-print("Complete")
+    del model.text_encoder
+    del model.decoder
+    del model.audio_encoder
+    gc.collect()
 
-print(audio_values.shape)
+    model.text_encoder = text_encode_ov
+    model.decoder = musicgen_decoder_ov
+    model.audio_encoder = audio_encoder_ov
 
-# 음악 파일 경로 및 파일 이름 설정
-output_audio_path = "output/generated_audio.wav"
+    model.prepare_inputs_for_generation = partial(prepare_inputs_for_generation, model)
 
-# audio_values의 첫 번째 샘플을 저장합니다.
-sf.write(output_audio_path, audio_values[0, 0].cpu().numpy(), sampling_rate)
+    print("Audio Generating")
+    audio_values = model.generate(**inputs, do_sample=True, guidance_scale=3, max_new_tokens=n_tokens)
+    print("Complete")
 
-print(f"Generated audio saved at: {output_audio_path}")
+    print(audio_values.shape)
+
+    # 음악 파일 경로 및 파일 이름 설정
+    output_audio_path = "output/generated_audio.wav"
+
+    # audio_values의 첫 번째 샘플을 저장합니다.
+    sf.write(output_audio_path, audio_values[0, 0].cpu().numpy(), sampling_rate)
+
+    return output_audio_path
