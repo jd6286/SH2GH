@@ -51,7 +51,6 @@ numba==0.59.1
 numpy==1.26.4
 omegaconf==2.3.0
 onnxruntime==1.18.0
-opencv-python==4.10.0.82
 opencv-python-headless==4.10.0.82
 openvino==2024.1.0
 openvino-telemetry==2024.1.0
