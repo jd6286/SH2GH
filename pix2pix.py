@@ -1,3 +1,7 @@
+if __name__ == "__main__":
+    print("This is not an executable script. Please run main.py.")
+
+
 import sys
 import copy
 import gc

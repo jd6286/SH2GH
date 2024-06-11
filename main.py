@@ -6,7 +6,7 @@ from PyQt5.QtGui import QPixmap
 
 from pix2pix import sketch_to_image
 # from image_to_3d_model import image_to_3d_model
-# from music_generation import generate_music
+from music_generation import generate_music
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -88,13 +88,18 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, 'Warning', 'Please upload a sketch first!')
             return
         
-        keyword = self.keyword_input.text()
-        if not keyword:
-            QMessageBox.warning(self, 'Warning', 'Please enter a keyword!')
+        image_keyword = self.keyword_input.text()
+        if not image_keyword:
+            QMessageBox.warning(self, 'Warning', 'Please enter a image keyword!')
+            return
+        
+        music_keyword = self.music_keyword_input.text()
+        if not music_keyword:
+            QMessageBox.warning(self, 'Warning', 'Please enter a music keyword!')
             return
         
         # Step 1: Sketch to Image
-        generated_image = sketch_to_image(self.sketch_path, keyword)
+        generated_image = sketch_to_image(self.sketch_path, image_keyword)
         self.display_image("output/sketch_to_image.jpg")
         
         # Step 2: Image to 3D Model
@@ -102,8 +107,8 @@ class MainWindow(QWidget):
         # self.model_label.setText(f'3D Model Path: {model_3d}')
         
         # Step 3: Generate music based on keywords
-        # music = generate_music(keyword)
-        # self.music_label.setText(f'Generated Music Path: {music}')
+        music = generate_music(music_keyword)
+        self.music_label.setText(f'Generated Music Path: {music}')
         
     def display_image(self, image_path):
         """
