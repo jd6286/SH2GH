@@ -30,13 +30,21 @@ class MainWindow(QWidget):
         self.upload_button.clicked.connect(self.upload_sketch)
         layout.addWidget(self.upload_button)
 
-        # 키워드 입력 라벨
+        # 이미지 키워드 입력 라벨
         self.keyword_label = QLabel('Enter Keywords:')
         layout.addWidget(self.keyword_label)
 
-        # 키워드 입력창        
+        # 이미지 키워드 입력창        
         self.keyword_input = QLineEdit(self)
         layout.addWidget(self.keyword_input)
+
+        # 음악 키워드 입력 라벨
+        self.music_keyword_label = QLabel('Enter Text for Music Generation:')
+        layout.addWidget(self.music_keyword_label)
+
+        # 음악 키워드 입력창
+        self.music_keyword_input = QLineEdit(self)
+        layout.addWidget(self.music_keyword_input)
         
         # 생성 버튼
         self.generate_button = QPushButton('Generate')

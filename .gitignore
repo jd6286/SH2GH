@@ -164,7 +164,7 @@ cython_debug/
 # Models
 checkpoints/
 img2img-turbo/
-model/
+models/
 
 # Output Folder
 output/

@@ -294,7 +294,7 @@ def numpy_to_qpixmap(numpy_array):
 
 def sketch_to_image(sketch_path, keyword):
     # PyTorch 모델 불러오기
-    ov_model_path = Path("model/pix2pix-turbo.xml")
+    ov_model_path = Path("models/pix2pix-turbo.xml")
     pt_model = None
 
     if not ov_model_path.exists():

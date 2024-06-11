@@ -4,8 +4,6 @@ import gc
 from pathlib import Path
 from typing import Optional, Tuple
 import warnings
-import ipywidgets as widgets
-from IPython.display import Audio
 import openvino as ov
 import numpy as np
 import torch
@@ -39,6 +37,12 @@ if parse(importlib_metadata.version("transformers")) >= parse("4.40.0"):
 # Load the pipeline
 model = MusicgenForConditionalGeneration.from_pretrained("facebook/musicgen-small", torchscript=True, return_dict=False, **loading_kwargs)
 
+processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
+
+inputs = processor(
+    text=["A song that would fit in a 1970s western. write me a guitar"],
+    return_tensors="pt",
+)
 
 sample_length = 2 # seconds
 
@@ -122,23 +126,12 @@ if not audio_decoder_ir_path.exists():
     gc.collect()
 
 core = ov.Core()
-
-
-
-device = widgets.Dropdown(
-    options=core.available_devices + ["AUTO"],
-    value="AUTO",
-    description="Device:",
-    disabled=False,
-)
-
-device
-
+device = "CPU"
 
 class TextEncoderWrapper(torch.nn.Module):
     def __init__(self, encoder_ir, config):
         super().__init__()
-        self.encoder = core.compile_model(encoder_ir, device.value)
+        self.encoder = core.compile_model(encoder_ir, device)
         self.config = config
 
     def forward(self, input_ids, **kwargs):
@@ -158,8 +151,8 @@ class MusicGenWrapper(torch.nn.Module):
         apply_delay_pattern_mask,
     ):
         super().__init__()
-        self.music_gen_lm_0 = core.compile_model(music_gen_lm_0_ir, device.value)
-        self.music_gen_lm = core.compile_model(music_gen_lm_ir, device.value)
+        self.music_gen_lm_0 = core.compile_model(music_gen_lm_0_ir, device)
+        self.music_gen_lm = core.compile_model(music_gen_lm_ir, device)
         self.config = config
         self.num_codebooks = num_codebooks
         self.build_delay_pattern_mask = build_delay_pattern_mask
@@ -195,7 +188,7 @@ class MusicGenWrapper(torch.nn.Module):
 class AudioDecoderWrapper(torch.nn.Module):
     def __init__(self, decoder_ir, config):
         super().__init__()
-        self.decoder = core.compile_model(decoder_ir, device.value)
+        self.decoder = core.compile_model(decoder_ir, device)
         self.config = config
         self.output_type = namedtuple("AudioDecoderOutput", ["audio_values"])
 
@@ -280,22 +273,14 @@ def prepare_inputs_for_generation(
 model.prepare_inputs_for_generation = partial(prepare_inputs_for_generation, model)
 
 
-processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
-
-inputs = processor(
-    text=["A song that would fit in a 1970s western. write me a guitar"],
-    return_tensors="pt",
-)
 print("Audio Generating")
 audio_values = model.generate(**inputs, do_sample=True, guidance_scale=3, max_new_tokens=n_tokens)
 print("Complete")
 
-Audio(audio_values[0].cpu().numpy(), rate=sampling_rate)
-
 print(audio_values.shape)
 
 # 음악 파일 경로 및 파일 이름 설정
-output_audio_path = "generated_audio.wav"
+output_audio_path = "output/generated_audio.wav"
 
 # audio_values의 첫 번째 샘플을 저장합니다.
 sf.write(output_audio_path, audio_values[0, 0].cpu().numpy(), sampling_rate)
