@@ -164,6 +164,7 @@ cython_debug/
 # Models
 checkpoints/
 img2img-turbo/
+TripoSR/
 models/
 
 # Output Folder
