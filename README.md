@@ -51,3 +51,7 @@ python main.py
   
 ![3dImage](https://media.discordapp.net/attachments/1244871418609664067/1250262846688854026/3d_moai.png?ex=666a4d83&is=6668fc03&hm=2e7d388931d19bca399f1ccda10cb92b545ed36a8bdc0131eb396150d9eba6be&=&format=webp&quality=lossless)
 
+## Demo
+
+https://drive.google.com/file/d/12uHbnKXtz3ksCBNqbf-WtNpigkmD6zYF/view
+
