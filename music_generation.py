@@ -57,7 +57,7 @@ class MusicGenerator:
 
         self.processor = AutoProcessor.from_pretrained("facebook/musicgen-small")
 
-        sample_length = 2 # seconds
+        sample_length = 8 # seconds
 
         self.n_tokens = sample_length * self.model.config.audio_encoder.frame_rate + 3
         self.sampling_rate = self.model.config.audio_encoder.sampling_rate
