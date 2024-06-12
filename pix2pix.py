@@ -343,5 +343,8 @@ def sketch_to_image(sketch_path, keyword):
 
     image_tensor = (result[0] * 0.5 + 0.5) * 255
     image = np.transpose(image_tensor, (1, 2, 0)).astype(np.uint8)
-
-    cv2.imwrite("output/sketch_to_image.jpg", image)
+    
+    output_dir = Path("output")
+    if not output_dir.exists():
+        output_dir.mkdir()
+    cv2.imwrite(output_dir / "sketch_to_image.jpg", image)
