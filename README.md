@@ -42,7 +42,7 @@ python main.py
 
 - 실행 화면
 
-![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/c08abce7-a3c3-4a9f-ae00-a86e9d3f60f8/058ff45a-175b-412c-a661-2c79f11a7930/Untitled.png)
+!(https://prod-files-secure.s3.us-west-2.amazonaws.com/c08abce7-a3c3-4a9f-ae00-a86e9d3f60f8/058ff45a-175b-412c-a661-2c79f11a7930/Untitled.png)
 
 - 입력 이미지
     
