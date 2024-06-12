@@ -41,7 +41,7 @@ python main.py
 ## Result
 - 실행 화면
 
-![Untitled](/home/ubuntu/Downloads/output(1).png)
+![[Untitled](/home/ubuntu/Downloads/output(1).png)](https://docs.google.com/presentation/d/1ixn3rlUQQvyKV3R-wOWNlKVxfmwzLN62OeL7UT1g7cM/edit#slide=id.p)
 
 - 입력 이미지
     
