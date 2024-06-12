@@ -39,10 +39,9 @@ python main.py
 ```
 
 ## Result
-
 - 실행 화면
 
-!(https://prod-files-secure.s3.us-west-2.amazonaws.com/c08abce7-a3c3-4a9f-ae00-a86e9d3f60f8/058ff45a-175b-412c-a661-2c79f11a7930/Untitled.png)
+![Untitled](/home/ubuntu/Downloads/output(1).png)
 
 - 입력 이미지
     
