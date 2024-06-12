@@ -27,31 +27,178 @@ sys.path.append("TripoSR")
 from tsr.system import TSR
 from tsr.utils import remove_background, resize_foreground, to_gradio_3d_orientation
 
-# TripoSR 모델 불러오기 
-model = TSR.from_pretrained(
-    "stabilityai/TripoSR",
-    config_name="config.yaml",
-    weight_name="model.ckpt",
-)
-model.renderer.set_chunk_size(131072)
-model.to("cpu")
 
-# PyTorch 모델을 openVINO IR로 변환
-def convert(model: torch.nn.Module, xml_path: str, example_input):
-    xml_path = Path(xml_path)
-    if not xml_path.exists():
-        xml_path.parent.mkdir(parents=True, exist_ok=True)
-        with torch.no_grad():
-            converted_model = ov.convert_model(model, example_input=example_input)
-        ov.save_model(converted_model, xml_path, compress_to_fp16=False)
-
-        # cleanup memory
-        torch._C._jit_clear_class_registry()
-        torch.jit._recursive.concrete_type_store = torch.jit._recursive.ConcreteTypeStore()
-        torch.jit._state._clear_class_state()
-
-# 이미지 처리 모델을 openVINO IR로 변환 
 VIT_PATCH_EMBEDDINGS_OV_PATH = Path("models/vit_patch_embeddings_ir.xml")
+VIT_ENCODER_OV_PATH = Path("models/vit_encoder_ir.xml")
+VIT_POOLER_OV_PATH = Path("models/vit_pooler_ir.xml")
+TOKENIZER_OV_PATH = Path("models/tokenizer_ir.xml")
+BACKBONE_OV_PATH = Path("models/backbone_ir.xml")
+POST_PROCESSOR_OV_PATH = Path("models/post_processor_ir.xml")
+
+
+class TripoSR:
+    """
+    TripoSR 3D 클래스
+    """
+    def __init__(self):
+        self.model = None
+        self.rembg_session = rembg.new_session()
+
+        self.init_model()
+        self.covert_models_to_openvino()
+    
+    def init_model(self):
+        """
+        모델 불러오기
+        """
+        self.model = TSR.from_pretrained(
+            "stabilityai/TripoSR",
+            config_name="config.yaml",
+            weight_name="model.ckpt",
+        )
+        self.model.renderer.set_chunk_size(131072)
+        self.model.to("cpu")
+    
+    def covert_models_to_openvino(self):
+        """
+        사용하는 모델들을 OpenVINO 포맷으로 변환
+        """
+        example_input = {
+            "pixel_values": torch.rand([1, 3, 512, 512], dtype=torch.float32),
+        }
+        self.convert(
+            PatchEmbedingWrapper(self.model.image_tokenizer.model.embeddings.patch_embeddings),
+            VIT_PATCH_EMBEDDINGS_OV_PATH,
+            example_input,
+        )
+
+        example_input = {
+            "hidden_states": torch.rand([1, 1025, 768], dtype=torch.float32),
+        }
+        self.convert(
+            EncoderWrapper(self.model.image_tokenizer.model.encoder),
+            VIT_ENCODER_OV_PATH,
+            example_input,
+        )
+
+        self.convert(
+            self.model.image_tokenizer.model.pooler,
+            VIT_POOLER_OV_PATH,
+            torch.rand([1, 1025, 768], dtype=torch.float32),
+        )
+
+        self.convert(self.model.tokenizer, TOKENIZER_OV_PATH, torch.tensor(1))
+
+        example_input = {
+            "hidden_states": torch.rand([1, 1024, 3072], dtype=torch.float32),
+            "encoder_hidden_states": torch.rand([1, 1025, 768], dtype=torch.float32),
+        }
+        self.convert(self.model.backbone, BACKBONE_OV_PATH, example_input)
+
+        self.convert(
+            self.model.post_processor,
+            POST_PROCESSOR_OV_PATH,
+            torch.rand([1, 3, 1024, 32, 32], dtype=torch.float32),
+        )
+    
+    def convert(self, model: torch.nn.Module, xml_path: str, example_input):
+        """
+        모델 변환
+        """
+        xml_path = Path(xml_path)
+        if not xml_path.exists():
+            xml_path.parent.mkdir(parents=True, exist_ok=True)
+            with torch.no_grad():
+                converted_model = ov.convert_model(model, example_input=example_input)
+            ov.save_model(converted_model, xml_path, compress_to_fp16=False)
+
+            # cleanup memory
+            torch._C._jit_clear_class_registry()
+            torch.jit._recursive.concrete_type_store = torch.jit._recursive.ConcreteTypeStore()
+            torch.jit._state._clear_class_state()
+    
+    def check_input_image(self, input_image):
+        """
+        입력 이미지 체크
+        """
+        if input_image is None:
+            raise gr.Error("No image uploaded!")
+
+    def preprocess(self, input_image, do_remove_background, foreground_ratio):
+        """
+        입력 이미지 전처리
+        """
+        def fill_background(image):
+            image = np.array(image).astype(np.float32) / 255.0
+            image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
+            image = Image.fromarray((image * 255.0).astype(np.uint8))
+            return image
+
+        if do_remove_background:
+            image = input_image.convert("RGB")
+            image = remove_background(image, self.rembg_session)
+            image = resize_foreground(image, foreground_ratio)
+            image = fill_background(image)
+        else:
+            image = input_image
+            if image.mode == "RGBA":
+                image = fill_background(image)
+
+        return image
+
+    def generate(self, image):
+        """
+        3D 모델 생성
+        """
+        scene_codes = self.model(image, device = "cpu")  # the device is provided for the image processor
+        mesh = self.model.extract_mesh(scene_codes)[0]
+        mesh = to_gradio_3d_orientation(mesh)
+        #mesh_path = tempfile.NamedTemporaryFile(suffix=".obj", delete=False)
+        mesh_path = "output/image_to_3d.obj"
+        # mesh.export(mesh_path.name)
+        mesh.export(mesh_path)
+        print("Export complete.")
+
+        return mesh_path
+
+    def image_to_3D(self, image_path):
+        """
+        입력된 이미지를 이용해 3D 모델 파일을 생성
+        """
+        print("Image to 3D start.")
+
+        # OpenVINO의 코어를 가져옴
+        core = ov.Core()
+        device = "CPU"
+
+        # 모델 컴파일 
+        compiled_vit_patch_embeddings = core.compile_model(VIT_PATCH_EMBEDDINGS_OV_PATH, device)
+        compiled_vit_model_encoder = core.compile_model(VIT_ENCODER_OV_PATH, device)
+        compiled_vit_model_pooler = core.compile_model(VIT_POOLER_OV_PATH, device)
+
+        compiled_tokenizer = core.compile_model(TOKENIZER_OV_PATH, device)
+        compiled_backbone = core.compile_model(BACKBONE_OV_PATH, device)
+        compiled_post_processor = core.compile_model(POST_PROCESSOR_OV_PATH, device)
+
+        self.model.image_tokenizer.model.embeddings.patch_embeddings = VitPatchEmdeddingsWrapper(
+            compiled_vit_patch_embeddings,
+            self.model.image_tokenizer.model.embeddings.patch_embeddings,
+        )
+        self.model.image_tokenizer.model.encoder = VitModelEncoderWrapper(compiled_vit_model_encoder)
+        self.model.image_tokenizer.model.pooler = VitModelPoolerWrapper(compiled_vit_model_pooler)
+
+        self.model.tokenizer = TokenizerWrapper(compiled_tokenizer, self.model.tokenizer)
+        self.model.backbone = BackboneWrapper(compiled_backbone)
+        self.model.post_processor = PostProcessorWrapper(compiled_post_processor)
+
+        # 이미지 불러오기 
+        input_image = load_image(image_path)
+        # 이미지 전처리
+        processed_image = self.preprocess(input_image, True, 0.85)
+        # 3D 모델 생성 
+        result = self.generate(processed_image)
+
+        return result
 
 
 class PatchEmbedingWrapper(torch.nn.Module):
@@ -62,18 +209,6 @@ class PatchEmbedingWrapper(torch.nn.Module):
     def forward(self, pixel_values, interpolate_pos_encoding=True):
         outputs = self.patch_embeddings(pixel_values=pixel_values, interpolate_pos_encoding=True)
         return outputs
-    
-example_input = {
-    "pixel_values": torch.rand([1, 3, 512, 512], dtype=torch.float32),
-}
-
-convert(
-    PatchEmbedingWrapper(model.image_tokenizer.model.embeddings.patch_embeddings),
-    VIT_PATCH_EMBEDDINGS_OV_PATH,
-    example_input,
-)
-
-VIT_ENCODER_OV_PATH = Path("models/vit_encoder_ir.xml")
 
 
 class EncoderWrapper(torch.nn.Module):
@@ -94,42 +229,6 @@ class EncoderWrapper(torch.nn.Module):
         )
 
         return outputs.last_hidden_state
-
-
-example_input = {
-    "hidden_states": torch.rand([1, 1025, 768], dtype=torch.float32),
-}
-
-convert(
-    EncoderWrapper(model.image_tokenizer.model.encoder),
-    VIT_ENCODER_OV_PATH,
-    example_input,
-)
-
-VIT_POOLER_OV_PATH = Path("models/vit_pooler_ir.xml")
-convert(
-    model.image_tokenizer.model.pooler,
-    VIT_POOLER_OV_PATH,
-    torch.rand([1, 1025, 768], dtype=torch.float32),
-)
-
-TOKENIZER_OV_PATH = Path("models/tokenizer_ir.xml")
-convert(model.tokenizer, TOKENIZER_OV_PATH, torch.tensor(1))
-
-example_input = {
-    "hidden_states": torch.rand([1, 1024, 3072], dtype=torch.float32),
-    "encoder_hidden_states": torch.rand([1, 1025, 768], dtype=torch.float32),
-}
-
-BACKBONE_OV_PATH = Path("models/backbone_ir.xml")
-convert(model.backbone, BACKBONE_OV_PATH, example_input)
-
-POST_PROCESSOR_OV_PATH = Path("models/post_processor_ir.xml")
-convert(
-    model.post_processor,
-    POST_PROCESSOR_OV_PATH,
-    torch.rand([1, 3, 1024, 32, 32], dtype=torch.float32),
-)
 
 
 class VitPatchEmdeddingsWrapper(torch.nn.Module):
@@ -218,79 +317,3 @@ class PostProcessorWrapper(torch.nn.Module):
         outs = self.post_processor(triplanes)[0]
 
         return torch.from_numpy(outs)
-
-
-rembg_session = rembg.new_session()
-
-# 입력 이미지 체크
-def check_input_image(input_image):
-    if input_image is None:
-        raise gr.Error("No image uploaded!")
-
-
-# 입력 이미지 전처리
-def preprocess(input_image, do_remove_background, foreground_ratio):
-    def fill_background(image):
-        image = np.array(image).astype(np.float32) / 255.0
-        image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
-        image = Image.fromarray((image * 255.0).astype(np.uint8))
-        return image
-
-    if do_remove_background:
-        image = input_image.convert("RGB")
-        image = remove_background(image, rembg_session)
-        image = resize_foreground(image, foreground_ratio)
-        image = fill_background(image)
-    else:
-        image = input_image
-        if image.mode == "RGBA":
-            image = fill_background(image)
-    return image
-
-# 3D 모델 생성 함수 
-def generate(image):
-    scene_codes = model(image, device = "cpu")  # the device is provided for the image processor
-    mesh = model.extract_mesh(scene_codes)[0]
-    mesh = to_gradio_3d_orientation(mesh)
-    #mesh_path = tempfile.NamedTemporaryFile(suffix=".obj", delete=False)
-    mesh_path = "output/image_to_3d.obj"
-    # mesh.export(mesh_path.name)
-    mesh.export(mesh_path)
-    print("export complete")
-    return mesh_path
-
-def image_to_3D(image_path):
-    # OpenVINO의 코어를 가져옴
-    core = ov.Core()
-    device = "CPU"
-
-    # 모델 컴파일 
-    compiled_vit_patch_embeddings = core.compile_model(VIT_PATCH_EMBEDDINGS_OV_PATH, device)
-    compiled_vit_model_encoder = core.compile_model(VIT_ENCODER_OV_PATH, device)
-    compiled_vit_model_pooler = core.compile_model(VIT_POOLER_OV_PATH, device)
-
-    compiled_tokenizer = core.compile_model(TOKENIZER_OV_PATH, device)
-    compiled_backbone = core.compile_model(BACKBONE_OV_PATH, device)
-    compiled_post_processor = core.compile_model(POST_PROCESSOR_OV_PATH, device)
-
-    model.image_tokenizer.model.embeddings.patch_embeddings = VitPatchEmdeddingsWrapper(
-        compiled_vit_patch_embeddings,
-        model.image_tokenizer.model.embeddings.patch_embeddings,
-    )
-    model.image_tokenizer.model.encoder = VitModelEncoderWrapper(compiled_vit_model_encoder)
-    model.image_tokenizer.model.pooler = VitModelPoolerWrapper(compiled_vit_model_pooler)
-
-    model.tokenizer = TokenizerWrapper(compiled_tokenizer, model.tokenizer)
-    model.backbone = BackboneWrapper(compiled_backbone)
-    model.post_processor = PostProcessorWrapper(compiled_post_processor)
-
-    # 이미지 불러오기 
-    input_image = load_image(image_path)
-    # 이미지 전처리
-    processed_image = preprocess(input_image, True, 0.85)
-    # 3D 모델 생성 
-    result = generate(processed_image)
-
-    return result
-
-# image_to_3D("output/sketch_to_image.jpg")
