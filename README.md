@@ -41,7 +41,7 @@ python main.py
 ## Result
 - 실행 화면
 
-![[Untitled](/home/ubuntu/Downloads/output(1).png)](https://docs.google.com/presentation/d/1ixn3rlUQQvyKV3R-wOWNlKVxfmwzLN62OeL7UT1g7cM/edit#slide=id.p)
+![실행화면](https://docs.google.com/presentation/d/1WPAQpurEqZyCNxfr_fwnjwBaS-ryJNfAreqaZztmv0w/edit#slide=id.g2a8a44c911d_0_21)
 
 - 입력 이미지
     
