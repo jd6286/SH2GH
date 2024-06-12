@@ -1,4 +1,11 @@
 import sys
+
+
+if __name__ == "__main__":
+    print("This is not an executable script. Please run main.py.")
+    sys.exit(-1)
+
+
 import os
 import torch
 import openvino as ov
@@ -124,19 +131,18 @@ convert(
     torch.rand([1, 3, 1024, 32, 32], dtype=torch.float32),
 )
 
-# OpenVINO의 코어를 가져옴
+# # OpenVINO의 코어를 가져옴
+# core = ov.Core()
+# device = "CPU"
 
-core = ov.Core()
-device = "CPU"
+# # 모델 컴파일 
+# compiled_vit_patch_embeddings = core.compile_model(VIT_PATCH_EMBEDDINGS_OV_PATH, device)
+# compiled_vit_model_encoder = core.compile_model(VIT_ENCODER_OV_PATH, device)
+# compiled_vit_model_pooler = core.compile_model(VIT_POOLER_OV_PATH, device)
 
-# 모델 컴파일 
-compiled_vit_patch_embeddings = core.compile_model(VIT_PATCH_EMBEDDINGS_OV_PATH, device)
-compiled_vit_model_encoder = core.compile_model(VIT_ENCODER_OV_PATH, device)
-compiled_vit_model_pooler = core.compile_model(VIT_POOLER_OV_PATH, device)
-
-compiled_tokenizer = core.compile_model(TOKENIZER_OV_PATH, device)
-compiled_backbone = core.compile_model(BACKBONE_OV_PATH, device)
-compiled_post_processor = core.compile_model(POST_PROCESSOR_OV_PATH, device)
+# compiled_tokenizer = core.compile_model(TOKENIZER_OV_PATH, device)
+# compiled_backbone = core.compile_model(BACKBONE_OV_PATH, device)
+# compiled_post_processor = core.compile_model(POST_PROCESSOR_OV_PATH, device)
 
 class VitPatchEmdeddingsWrapper(torch.nn.Module):
     def __init__(self, vit_patch_embeddings, model):
@@ -226,16 +232,16 @@ class PostProcessorWrapper(torch.nn.Module):
         return torch.from_numpy(outs)
 
 
-model.image_tokenizer.model.embeddings.patch_embeddings = VitPatchEmdeddingsWrapper(
-    compiled_vit_patch_embeddings,
-    model.image_tokenizer.model.embeddings.patch_embeddings,
-)
-model.image_tokenizer.model.encoder = VitModelEncoderWrapper(compiled_vit_model_encoder)
-model.image_tokenizer.model.pooler = VitModelPoolerWrapper(compiled_vit_model_pooler)
+# model.image_tokenizer.model.embeddings.patch_embeddings = VitPatchEmdeddingsWrapper(
+#     compiled_vit_patch_embeddings,
+#     model.image_tokenizer.model.embeddings.patch_embeddings,
+# )
+# model.image_tokenizer.model.encoder = VitModelEncoderWrapper(compiled_vit_model_encoder)
+# model.image_tokenizer.model.pooler = VitModelPoolerWrapper(compiled_vit_model_pooler)
 
-model.tokenizer = TokenizerWrapper(compiled_tokenizer, model.tokenizer)
-model.backbone = BackboneWrapper(compiled_backbone)
-model.post_processor = PostProcessorWrapper(compiled_post_processor)
+# model.tokenizer = TokenizerWrapper(compiled_tokenizer, model.tokenizer)
+# model.backbone = BackboneWrapper(compiled_backbone)
+# model.post_processor = PostProcessorWrapper(compiled_post_processor)
 
 rembg_session = rembg.new_session()
 
@@ -270,18 +276,44 @@ def generate(image):
     mesh = model.extract_mesh(scene_codes)[0]
     mesh = to_gradio_3d_orientation(mesh)
     #mesh_path = tempfile.NamedTemporaryFile(suffix=".obj", delete=False)
-    mesh_path = "/home/ubuntu/Downloads/output.obj"
+    mesh_path = "output/image_to_3d.obj"
     # mesh.export(mesh_path.name)
     mesh.export(mesh_path)
     print("export complete")
-    # return mesh_path.name
+    return mesh_path
 
 def image_to_3D(image_path):
+    # OpenVINO의 코어를 가져옴
+    core = ov.Core()
+    device = "CPU"
+
+    # 모델 컴파일 
+    compiled_vit_patch_embeddings = core.compile_model(VIT_PATCH_EMBEDDINGS_OV_PATH, device)
+    compiled_vit_model_encoder = core.compile_model(VIT_ENCODER_OV_PATH, device)
+    compiled_vit_model_pooler = core.compile_model(VIT_POOLER_OV_PATH, device)
+
+    compiled_tokenizer = core.compile_model(TOKENIZER_OV_PATH, device)
+    compiled_backbone = core.compile_model(BACKBONE_OV_PATH, device)
+    compiled_post_processor = core.compile_model(POST_PROCESSOR_OV_PATH, device)
+
+    model.image_tokenizer.model.embeddings.patch_embeddings = VitPatchEmdeddingsWrapper(
+        compiled_vit_patch_embeddings,
+        model.image_tokenizer.model.embeddings.patch_embeddings,
+    )
+    model.image_tokenizer.model.encoder = VitModelEncoderWrapper(compiled_vit_model_encoder)
+    model.image_tokenizer.model.pooler = VitModelPoolerWrapper(compiled_vit_model_pooler)
+
+    model.tokenizer = TokenizerWrapper(compiled_tokenizer, model.tokenizer)
+    model.backbone = BackboneWrapper(compiled_backbone)
+    model.post_processor = PostProcessorWrapper(compiled_post_processor)
+
     # 이미지 불러오기 
     input_image = load_image(image_path)
     # 이미지 전처리
     processed_image = preprocess(input_image, True, 0.85)
     # 3D 모델 생성 
-    generate(processed_image)
+    result = generate(processed_image)
 
-image_to_3D("output/sketch_to_image.jpg")
+    return result
+
+# image_to_3D("output/sketch_to_image.jpg")

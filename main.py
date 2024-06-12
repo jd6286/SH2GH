@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdi
 from PyQt5.QtGui import QPixmap
 
 from pix2pix import sketch_to_image
-# from image_to_3d_model import image_to_3d_model
+from triposr_3d import image_to_3D
 from music_generation import generate_music
 
 class MainWindow(QWidget):
@@ -103,8 +103,8 @@ class MainWindow(QWidget):
         self.display_image("output/sketch_to_image.jpg")
         
         # Step 2: Image to 3D Model
-        # model_3d = image_to_3d_model(generated_image)
-        # self.model_label.setText(f'3D Model Path: {model_3d}')
+        model_3d = image_to_3D("output/sketch_to_image.jpg")
+        self.model_label.setText(f'3D Model Path: {model_3d}')
         
         # Step 3: Generate music based on keywords
         music = generate_music(music_keyword)
