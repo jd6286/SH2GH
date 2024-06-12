@@ -49,6 +49,7 @@ class MusicGenerator:
         self.sampling_rate = None
 
         self.init_model()
+        self.convert_model_to_openvino()
     
     def init_model(self):
         # Load the pipeline
