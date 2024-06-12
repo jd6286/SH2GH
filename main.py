@@ -2,24 +2,39 @@ import sys
 from pathlib import Path
 import gc
 
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton, QFileDialog, QMessageBox, QMainWindow, QStatusBar
 from PyQt5.QtGui import QPixmap
 
 from pix2pix import sketch_to_image
 from triposr_3d import TripoSR
 from music_generation import MusicGenerator
 
-class MainWindow(QWidget):
-    def __init__(self):
+
+class MainWindow(QMainWindow):
+    def __init__(self, parent=None):
         super().__init__()
+        self.main_widget = FormWidget(self)
+        self.setCentralWidget(self.main_widget)
+        self.init_UI()
+    
+    def init_UI(self):
+        self.statusbar = QStatusBar()
+        self.setStatusBar(self.statusbar)
+        self.statusBar().showMessage('Ready')
+        self.setGeometry(200, 100, 400, 500)
+        self.setWindowTitle('SH2GH')
+
+
+class FormWidget(QWidget):
+    def __init__(self, parent):
+        super(FormWidget, self).__init__(parent)
+        self.parent = parent
         self.initUI()
         
     def initUI(self):
         """
         윈도우의 UI를 초기화합니다.
         """
-        self.setWindowTitle('Sketch to 3D Model and Music Generator')
-        
         layout = QVBoxLayout()
 
         # 파일 업로드 라벨
@@ -100,10 +115,12 @@ class MainWindow(QWidget):
             return
         
         # Step 1: Sketch to Image
+        self.parent.statusBar().showMessage('Processing sketch to image...')
         generated_image = sketch_to_image(self.sketch_path, image_keyword)
         self.display_image("output/sketch_to_image.jpg")
         
         # Step 2: Image to 3D Model
+        self.parent.statusBar().showMessage('Processing image to 3D model...')
         triposr = TripoSR()
         model_3d = triposr.image_to_3D("output/sketch_to_image.jpg")
         self.model_label.setText(f'3D Model Path: {model_3d}')
@@ -111,11 +128,14 @@ class MainWindow(QWidget):
         gc.collect()
         
         # Step 3: Generate music based on keywords
+        self.parent.statusBar().showMessage('Generating music...')
         music_generator = MusicGenerator()
         music = music_generator.generate_music(music_keyword)
         self.music_label.setText(f'Generated Music Path: {music}')
         del music_generator
         gc.collect()
+
+        self.parent.statusBar().showMessage('Ready')
         
     def display_image(self, image_path):
         """
