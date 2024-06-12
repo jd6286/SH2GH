@@ -7,7 +7,7 @@ from PyQt5.QtGui import QPixmap
 
 from pix2pix import sketch_to_image
 from triposr_3d import TripoSR
-from music_generation import generate_music
+from music_generation import MusicGenerator
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -111,8 +111,11 @@ class MainWindow(QWidget):
         gc.collect()
         
         # Step 3: Generate music based on keywords
-        music = generate_music(music_keyword)
+        music_generator = MusicGenerator()
+        music = music_generator.generate_music(music_keyword)
         self.music_label.setText(f'Generated Music Path: {music}')
+        del music_generator
+        gc.collect()
         
     def display_image(self, image_path):
         """
