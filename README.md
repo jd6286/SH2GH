@@ -39,15 +39,4 @@ python main.py
 ```
 
 ## Result
-- 실행 화면
 
-![실행화면](https://docs.google.com/presentation/d/1WPAQpurEqZyCNxfr_fwnjwBaS-ryJNfAreqaZztmv0w/edit#slide=id.g2a8a44c911d_0_21)
-
-- 입력 이미지
-    
-    ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/c08abce7-a3c3-4a9f-ae00-a86e9d3f60f8/6225bf4a-ef12-4051-acd2-725e5afa376a/8d83ad79-74a7-474c-bee7-d14106c38209.png)
-    
-
-- 출력 파일
-    
-    ![Untitled](https://prod-files-secure.s3.us-west-2.amazonaws.com/c08abce7-a3c3-4a9f-ae00-a86e9d3f60f8/91b1f3ae-6959-4e0c-9e7e-1d7d46785565/Untitled.png)
